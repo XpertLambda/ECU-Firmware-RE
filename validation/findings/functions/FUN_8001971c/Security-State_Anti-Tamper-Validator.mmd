@@ -1,0 +1,13 @@
+flowchart TD
+    A[Start] --> B[Refresh security shadow state]
+    B --> C{Canary 1 = 0xA55AF00F?}
+    C -->|No| Z[Panic reset, sub_reason = 1]
+    C -->|Yes| D{Canary 2 = 0xC33C1881?}
+    D -->|No| Z
+    D -->|Yes| E{Security struct CRC valid?}
+    E -->|No| Z
+    E -->|Yes| F{Runtime invariant = 1?}
+    F -->|No| Y[Panic reset, sub_reason = 0]
+    F -->|Yes| G[Return normally]
+    Z --> X[System never returns]
+    Y --> X

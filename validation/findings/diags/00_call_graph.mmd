@@ -1,0 +1,24 @@
+%% Call graph for the UDS SecurityAccess path on the synthetic TC1766 lab firmware.
+%% Shows the complete call chain from CAN reception to hardware reset,
+%% with the functions that were rewritten for the lab binary highlighted.
+
+flowchart TD
+    EXT["Tester sends UDS SecurityAccess request over CAN"]
+    EXT --> RX["CAN message object receive"]
+    RX --> CHK["CAN channel receive check"]
+    CHK --> POLL["Diagnostic poll task"]
+    POLL --> GATE["UDS gatekeeper<br/>Validates session and routes by service ID"]
+    GATE --> TBL["Main dispatch table<br/>20 entries, one per supported service ID"]
+    TBL -->|Service 0x27| DISP["SecurityAccess dispatcher<br/>Routes by sub-function parity"]
+    DISP -->|RequestSeed or SendKey| S2K["Seed-to-key primitive<br/>Bit-reversed Fibonacci LFSR"]
+    DISP -->|Special sub-functions| ALT["Alternative handler<br/>ECU-specific variants"]
+    DISP --> VAL["Anti-tamper validator<br/>Always tail-called after every request"]
+    VAL -->|Integrity check fails| RST["Hardware reset trigger<br/>Captures crash log and resets ECU"]
+    RST --> DEAD["ECU resets — session ends"]
+    S2K --> DISP
+    ALT --> DISP
+
+    classDef rewrite fill:#fff3bf,stroke:#806a00,color:#1c1700
+    classDef hwreset fill:#ffd3d3,stroke:#7a0000,color:#1c0000
+    class DISP,S2K rewrite
+    class RST hwreset

@@ -1,0 +1,25 @@
+flowchart TD
+    A["Enter dispatcher<br/>Inputs: request buffer, response buffer"] --> B["Read sub-function byte from request"]
+    B --> C{"Sub-function parity?"}
+
+    C -->|Odd = RequestSeed| D{"Special RequestSeed variant?<br/>(sub-function 0x7F)"}
+    D -->|Yes| E["Call alternative handler<br/>on response buffer"]
+    E --> F["Tag response as alt-handler result"]
+    D -->|No| G["Call seed-to-key core<br/>Pass session byte from request"]
+    G --> H["Tag response as seed-to-key result"]
+
+    C -->|Even = SendKey| I{"Special SendKey variant?<br/>(sub-function 0x80)"}
+    I -->|Yes| J["Call alternative handler<br/>on request buffer"]
+    J --> K["Tag response as alt-handler result"]
+    I -->|No| L["Call seed-to-key core<br/>Key verification path"]
+    L --> K
+
+    F --> M["Write response tag byte"]
+    H --> M
+    K --> M
+    M --> N{"Operation successful?"}
+    N -->|Yes| O["Echo sub-function in response<br/>Return success"]
+    N -->|No| P["Return negative response code"]
+    O --> Q["Run anti-tamper integrity check"]
+    P --> Q
+    Q --> R["Return to UDS layer"]

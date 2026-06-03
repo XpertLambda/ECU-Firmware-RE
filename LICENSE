@@ -1,0 +1,79 @@
+FW-RE Lab — Combined Licence
+============================
+
+This repository contains two kinds of work, released under different licences.
+
+1. Source code, build scripts, and the synthetic binary
+-------------------------------------------------------
+Files: every file under `firmware_src/` (including `synthetic_tc1766.bin`,
+`synthetic_tc1766_build.py`, `synthetic_keygen.py`), every file under
+`PHASE::TEST/`, and every file under `validation/keygen/`.
+
+Licence: MIT.
+
+    MIT License
+
+    Copyright (c) 2026 the FW-RE Lab authors
+
+    Permission is hereby granted, free of charge, to any person obtaining a
+    copy of this software and associated documentation files (the "Software"),
+    to deal in the Software without restriction, including without limitation
+    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+    and/or sell copies of the Software, and to permit persons to whom the
+    Software is furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included
+    in all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+    OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+    DEALINGS IN THE SOFTWARE.
+
+
+2. Documentation, analysis notes, and diagrams
+----------------------------------------------
+Files: every Markdown file (`*.md`) in this repository, including all files
+under `validation/architecture/`; every Mermaid diagram (`*.mmd`); every rendered
+diagram (`*.png`) under `validation/findings/functions/`; the project `README.md`;
+and the PDF reference material under `docs/` that is the author's original work.
+
+Licence: Creative Commons Attribution-NonCommercial-ShareAlike 4.0
+International (CC BY-NC-SA 4.0).
+
+    You are free to:
+      - Share — copy and redistribute the material in any medium or format
+      - Adapt — remix, transform, and build upon the material
+
+    Under the following terms:
+      - Attribution — You must give appropriate credit, provide a link to
+        the licence, and indicate if changes were made.
+      - NonCommercial — You may not use the material for commercial purposes.
+      - ShareAlike — If you remix, transform, or build upon the material,
+        you must distribute your contributions under the same licence as
+        the original.
+
+    Full licence text: https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode
+
+
+SPDX summary
+------------
+SPDX-License-Identifier: MIT AND CC-BY-NC-SA-4.0
+
+
+Notes on scope
+--------------
+- The `docs/ECU Firmware RE.pdf` file is licensed under CC BY-NC-SA 4.0 as
+  part of the documentation set, to the extent it is the author's original
+  work.
+- Third-party material referenced by the lab (the Infineon TC1766 User Manual,
+  the ISO 14229 UDS specification, the Ghidra decompiler output convention)
+  remains under its own respective licence; no portion of any third-party
+  document is redistributed in this repository.
+- The Permitted Use section of `README.md` records the educational/research
+  framing under which this lab is published. Nothing in this licence file is
+  intended to displace that framing or to authorise use against systems the
+  reader does not own.

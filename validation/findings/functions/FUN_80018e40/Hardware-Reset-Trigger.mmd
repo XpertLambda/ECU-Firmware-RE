@@ -1,0 +1,15 @@
+
+flowchart TD
+    A[Enter: subsystem, reason, sub_reason] --> B[Read STM_TIM0, STM_CAP, STM_CLC]
+    B --> C[Save scaled timers to crash record at 0xD000DF30]
+    C --> D[Save caller return address]
+    D --> E[Save reason and its bitwise inverse]
+    E --> F[Save sub_reason and subsystem id]
+    F --> G{Debugger bit set in DBGSR?}
+    G -->|Yes| H[Halt to OCDS debugger]
+    G -->|No| I[Continue]
+    H --> J[Unlock watchdog with password pattern]
+    I --> J
+    J --> K[Re-lock watchdog with new config]
+    K --> L[Write RST_REQ = 4]
+    L --> M[Spin forever until reset fires]

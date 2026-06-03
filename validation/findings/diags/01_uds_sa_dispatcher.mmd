@@ -1,0 +1,32 @@
+%% FUN_80019EC2 - UDS SecurityAccess Dispatcher
+%% Parity-first dispatch: branch on even/odd sub-function first,
+%% then check for the special sub-function values within each arm.
+%% Anti-tamper validator is unconditionally tail-called at every exit.
+
+flowchart TD
+    A["Enter SecurityAccess dispatcher<br/>Inputs: request buffer, response buffer"] --> B["Read sub-function byte from request"]
+    B --> C{"Sub-function parity?"}
+
+    C -->|Odd = RequestSeed| D{"Special RequestSeed variant?"}
+    D -->|Yes| E["Call alternative handler<br/>operating on response buffer"]
+    E --> F["Tag response as alt-handler result"]
+    D -->|No| G["Call seed-to-key core<br/>Pass session byte from request"]
+    G --> H["Tag response as seed-to-key result"]
+
+    C -->|Even = SendKey| I{"Special SendKey variant?"}
+    I -->|Yes| J["Call alternative handler<br/>operating on request buffer"]
+    J --> K["Tag response as alt-handler result"]
+    I -->|No| L["Call seed-to-key core<br/>Key verification path"]
+    L --> K
+
+    F --> Q{"Operation successful?"}
+    H --> Q
+    K --> Q
+    Q -->|Yes| R["Echo sub-function in response<br/>Return success"]
+    Q -->|No| S["Return negative response code"]
+    R --> T["Run anti-tamper integrity check"]
+    S --> T
+    T --> U["Return to UDS layer"]
+
+    classDef fnbox fill:#dfe9ff,stroke:#163a8a,color:#0a1740
+    class E,G,J,L,T fnbox

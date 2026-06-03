@@ -1,0 +1,175 @@
+{
+    "functions": [
+        {
+            "name": "CAN_MsgObj_Receive (FUN_80158e2a)",
+            "ghidra_address": "0x80158e2a",
+            "utility": "CAN RX Function \u2014 reads one MultiCAN message object from hardware (guide step 3.1)",
+            "algorithm": "Reads MOCTR[NEWDAT] bit to check for new data. On new data: reads DLC from MOFCR[31:24], copies data bytes from MODATAL+msgobj*0x20, reads CAN ID from MOAR (11-bit or 29-bit). Retries up to 3x for consistency. Clears NEWDAT/RXPND via MOCTR=1.",
+            "parameters": "param_1=&out_canid, param_2=&out_dlc, param_3=data_buf_ptr, param_4=msg_object_index",
+            "returns": "1=new data received, 2=TX pending cleared, 0=no data, 8=consistency error",
+            "called_by": [
+                "CAN_Channel_RxCheck (0x80153018)",
+                "CAN_DiagPoll_Task (0x8014dc58) \u2014 indirectly",
+                "FUN_8014fb06",
+                "FUN_80153018",
+                "FUN_8015c374"
+            ],
+            "calls": [],
+            "peripheral_access": [
+                "CAN_MOCTR0",
+                "CAN_MOFCR0",
+                "CAN_MODATAL0",
+                "CAN_MOAR0"
+            ]
+        },
+        {
+            "name": "ISOTP_StateMachine (FUN_8000118e)",
+            "ghidra_address": "0x8000118e",
+            "utility": "ISO-TP (ISO-15765-2) transport layer state machine (guide step 3.2 / guide \u00a78.2)",
+            "algorithm": "8-state machine: 0x00=Idle, 0x01=Init/clear 132-byte buffers, 0x02=SF/FF processing, 0x03=CF reassembly, 0x04=wait CF, 0x05=Flow Control, 0x06=TX framing, 0x07=RX-ready/TX-waiting. State stored in param_10[0x14c].",
+            "called_by": [
+                "diag_state_machine (0x800000E4)",
+                "FUN_80001096 (0x80001096)"
+            ],
+            "calls": [
+                "FUN_80001396 (SF/FF processing)",
+                "FUN_80001824 (CF reassembly)",
+                "FUN_800019ca (wait-CF check)",
+                "FUN_800012f2 (TX framing)"
+            ]
+        },
+        {
+            "name": "diag_state_machine (0x800000E4)",
+            "ghidra_address": "0x800000E4",
+            "utility": "UDS diagnostic protocol outer state machine \u2014 wraps ISO-TP layer",
+            "algorithm": "4 outer states (in DAT_d000de40[3]): 0=init (calls FUN_80001178 + ISOTP_StateMachine), 1=receive-pending (checks completion, formats response), 2=response-ready (calls FUN_80000076 encode), 3=idle. References service vtable at 0x80001AD0 (stored as fn-ptr at 0x80001AF4).",
+            "called_by": [
+                "Function pointer table at 0x80001AF4 (vtable slot 9)"
+            ],
+            "calls": [
+                "ISOTP_StateMachine (0x8000118e)",
+                "FUN_80001178 (ISO-TP init)",
+                "FUN_80001184 (completion check)",
+                "FUN_80000076 (Generic hex encoder)"
+            ]
+        },
+        {
+            "name": "CAN_DiagPoll_Task (FUN_8014dc58)",
+            "ghidra_address": "0x8014dc58",
+            "utility": "CAN diagnostic polling task \u2014 bridges CAN hardware to UDS dispatcher",
+            "algorithm": "Loops over 7 CAN message object slots calling CAN_Channel_RxCheck. On any receive, sets flag in LDRAM and calls FUN_80131F10 (security/permissions UDS dispatcher). Called periodically by synthetic RTOS scheduler.",
+            "called_by": [
+                "RTOS task at 0x80094cfe",
+                "RTOS task at 0x8009461a",
+                "RTOS task at 0x80093e6e"
+            ],
+            "calls": [
+                "CAN_Channel_RxCheck (0x80153018)",
+                "FUN_80131F10 (UDS dispatcher/gatekeeper)"
+            ]
+        },
+        {
+            "name": "CAN_Channel_RxCheck (FUN_80153018)",
+            "ghidra_address": "0x80153018",
+            "utility": "Per-channel CAN RX check \u2014 wrapper around CAN_MsgObj_Receive for a channel index",
+            "algorithm": "Looks up message object index from channel table at DAT_8003344c[param]. Calls CAN_MsgObj_Receive with that index. Returns bool: true=data received.",
+            "called_by": [
+                "CAN_DiagPoll_Task (0x8014dc58)"
+            ],
+            "calls": [
+                "CAN_MsgObj_Receive (0x80158e2a)"
+            ]
+        },
+        {
+            "name": "STM_TIM0_Read (FUN_80093a36)",
+            "ghidra_address": "0x80093a36",
+            "utility": "Reads STM_TIM0 free-running timer register \u2014 used as seed entropy source",
+            "algorithm": "Single instruction: ld.w d2, 0xF0000210. Returns STM timer low word.",
+            "called_by": [],
+            "calls": [],
+            "peripheral_access": [
+                "STM_TIM0 @ 0xF0000210"
+            ],
+            "note": "Referenced in CAN state machine timing logic. Consistent with guide \u00a710.1 seed source Pattern A (timer read)."
+        },
+        {
+            "name": "FUN_0001b57e (Seed-to-Key)",
+            "ghidra_address": "0x8001b57e",
+            "utility": "Security Access Seed-to-Key Algorithm (Service 0x27)",
+            "algorithm": "Clean-room rewrite: bit-reversed Fibonacci LFSR. Inner loop is a right-shift LFSR over a bit-reversed state with a bit-reversed feedback polynomial. State and polynomial are bit-reversed (and inverse-reversed at the end) so the function still emits the seed and stores the expected key in Galois (natural) form. Three bit_reverse_32 conversions surround a right-shift + LSB-test + branchless-mask XOR loop. Polynomial per security level from POLYNOMIAL_ARRAY[((level+1)/2)-1]. Rounds = min(loop_modifier + 35, 255). Mathematically equivalent to the original Galois LFSR; equivalence proven by bit_reverse(galois_step(s)) = fib_step(bit_reverse(s)) and verified empirically by synthetic_keygen.py --self-test (1512 cross-equivalence checks) and KeygenOracle.java (180 firmware-emulator trials matched bit-for-bit against the keygen).",
+            "called_by": [
+                "FUN_80019ec2 (UDS SA Dispatcher)"
+            ],
+            "calls": [],
+            "polynomial_note": "Synthetic polynomial table at 0x80025B6E. The 30 entries are LAB ONLY and differ from any production firmware. See synthetic_poly_table.md."
+        },
+        {
+            "name": "FUN_00019ec2 (UDS SA Dispatcher)",
+            "ghidra_address": "0x80019ec2",
+            "utility": "UDS Security Access Dispatcher (Service 0x27 handler)",
+            "algorithm": "Clean-room rewrite: parity-first split. Outermost branch is (subfunc & 1); inside each parity branch the special value (0x7F for odd, 0x80 for even) is identified, otherwise the seed/key core is invoked. Original behaviour preserved exactly: 0x7F\u2192alt handler on response buffer, 0x80\u2192alt handler on request buffer, odd\u2192RequestSeed (calls LFSR with session byte = req[0x1C]), even\u2192SendKey (calls LFSR with session byte = 0). Sets tx_buffer[0x19]=response_tag, echoes subfunc into tx_buffer[0x1B] on success. Always tail-calls Validate_System_State() at the end.",
+            "called_by": [
+                "Via function pointer at the expanded 20-entry UDS service dispatch table @ 0x8001BF48"
+            ],
+            "calls": [
+                "FUN_8001b57e (LFSR / seed-to-key)",
+                "FUN_8001b6d0 (alt handler \u2014 relocated from 0x8001b688)",
+                "FUN_8001971c (anti-tamper validator)"
+            ]
+        },
+        {
+            "name": "FUN_0001971c",
+            "ghidra_address": "0x8001971c",
+            "utility": "Security State / Timer / Signature Validator (anti-tamper)",
+            "algorithm": "Validates magic numbers in memory (checks against -0x5aa50ff1 and -0x3cc3e77f) and checks execution timers. If validation fails, triggers a system reset.",
+            "called_by": [
+                "FUN_80019ec2"
+            ],
+            "calls": [
+                "FUN_80018e40",
+                "FUN_8001a4bc",
+                "FUN_80019c5a"
+            ]
+        },
+        {
+            "name": "FUN_00018e40",
+            "ghidra_address": "0x80018e40",
+            "utility": "Hardware Reset Trigger",
+            "algorithm": "Writes specific reset sequences to WDT_CON0, WDT_CON1 and issues hardware reset via RST_REQ register.",
+            "called_by": [
+                "FUN_8001971c"
+            ],
+            "calls": []
+        },
+        {
+            "name": "FUN_0001b6d0 (was FUN_0001b688)",
+            "ghidra_address": "0x8001b6d0",
+            "utility": "Alternative Security / Sub-function Handler (0x7F/0x80 sub-functions)",
+            "algorithm": "Handles security states when specific byte flags (0x7F or 0x80) are passed by the dispatcher. Manages internal state flags and executes function pointers.",
+            "relocation_note": "Relocated from 0x8001B688 to 0x8001B6D0 because the new 332-byte body of FUN_8001B57E now extends through 0x8001B6CA. Function body is byte-for-byte identical; both CALL sites in FUN_80019EC2 were repatched to target the new address.",
+            "called_by": [
+                "FUN_80019ec2"
+            ],
+            "calls": []
+        }
+    ],
+    "relationships": {
+        "full_rx_chain": "RTOS_task \u2192 CAN_DiagPoll_Task(0x8014dc58) \u2192 CAN_Channel_RxCheck(0x80153018) \u2192 CAN_MsgObj_Receive(0x80158e2a) [CAN hardware]",
+        "uds_chain": "CAN_DiagPoll_Task \u2192 FUN_80131F10(UDS gatekeeper) \u2192 [16-entry handler table] \u2192 diag_state_machine(0x800000E4) \u2192 ISOTP_StateMachine(0x8000118e) \u2192 service_table(0x8001BF48, 20 entries) \u2192 FUN_80019ec2(SA 0x27) \u2192 FUN_8001b57e(Fibonacci-form LFSR)",
+        "entry_point": "FUN_80019ec2",
+        "critical_path": "FUN_80019ec2 -> FUN_0001b57e",
+        "security_enforcement": "FUN_80019ec2 -> FUN_0001971c -> FUN_00018e40",
+        "seed_entropy": "STM_TIM0_Read(0x80093a36) reads 0xF0000210"
+    },
+    "key_addresses": {
+        "CAN_base": "0xF0004000",
+        "CAN_MO_base": "0xF0004400 (MOFCR0)",
+        "CAN_NIPR0": "0xF0004208",
+        "STM_TIM0": "0xF0000210",
+        "service_vtable": "0x80001AD0",
+        "main_dispatch_table": "0x8001BF48 (20 fn_ptr+SID pairs, 8 bytes each; sentinel 0x3D5C8E1B 0xC6F472A9 at +0xA0; guard 0x95959595 0xC3C3C3C3 at +0xA8)",
+        "AltHandler": "0x8001B6D0 (relocated from 0x8001B688)",
+        "LDRAM_diag_globals": "0xD000DE28-0xD000DEAC",
+        "POLYNOMIAL_ARRAY_base": "0x80025B6E (A1=0x8002DA38) \u2014 synthetic lab values, see synthetic_poly_table.md"
+    }
+}

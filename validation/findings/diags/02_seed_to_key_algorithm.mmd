@@ -1,0 +1,40 @@
+%% FUN_8001B57E - SecurityAccess Seed-to-Key Core
+%% Bit-reversed Fibonacci LFSR: three bit-reverse conversions wrap a
+%% right-shift loop so the seed and key are both in natural form on the wire.
+%% Mathematically equivalent to the Galois left-shift LFSR; verified by
+%% 1512 cross-equivalence self-tests and 180 firmware emulator trials.
+
+flowchart TD
+    A["Enter seed-to-key function<br/>Inputs: buffer, sub-function, session byte"] --> B{"Valid sub-function range?"}
+    B -->|No| C["Disarm seed-pending flag"]
+    C --> D["Return: invalid sub-function error"]
+    B -->|Yes| E{"Request type?"}
+
+    E -->|Even = SendKey| F{"Is a seed currently pending?"}
+    F -->|No| G["Return: access denied"]
+    F -->|Yes| H["Clear pending flag<br/>Reset security level"]
+    H --> I["Read received key from buffer"]
+    I --> J["XOR received key with stored expected key"]
+    J --> K{"Difference matches required validation pattern?"}
+    K -->|No| G
+    K -->|Yes| L{"Byte value in allowed range?"}
+    L -->|No| G
+    L -->|Yes| M["Grant security level"]
+    M --> N["Return: success"]
+
+    E -->|Odd = RequestSeed| O["Randomise LFSR state<br/>using live hardware timer as nonce"]
+    O --> P["Write 4-byte seed to buffer"]
+    P --> Q["Compute shift count from session byte"]
+    Q --> R["Select polynomial for this security level"]
+    R --> S["Convert polynomial to Fibonacci form<br/>(bit-reverse)"]
+    S --> T["Convert seed to Fibonacci coordinates<br/>(bit-reverse)"]
+    T --> U["Run right-shift LFSR for computed rounds<br/>Sample feedback bit, shift right,<br/>conditionally XOR polynomial"]
+    U --> V["Convert result back to natural form<br/>(bit-reverse)"]
+    V --> W["Store as expected key"]
+    W --> X["Arm seed-pending flag"]
+    X --> N
+
+    classDef bitrev fill:#e8f4ff,stroke:#0d4a8c,color:#062241
+    classDef fail   fill:#ffd9d9,stroke:#7a0000,color:#220000
+    class S,T,V bitrev
+    class C,D,G fail

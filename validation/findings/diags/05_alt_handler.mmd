@@ -1,0 +1,29 @@
+%% FUN_8001B6D0 - SecurityAccess Alternative Handler
+%% Handles the ECU-specific sub-functions 0x7F (RequestSeed special) and
+%% 0x80 (SendKey special). Relocated from its original address to make room
+%% for the expanded seed-to-key body in the lab binary.
+
+flowchart TD
+    A["Enter alternative handler<br/>Inputs: buffer, sub-function (0x7F or 0x80)"] --> B{"Which sub-function?"}
+
+    B -->|0x7F - RequestSeed special| C["Read internal state flags from secure storage"]
+    C --> D{"Pending action indicated?"}
+    D -->|Yes| E["Look up handler for current state"]
+    E --> F["Invoke state-specific handler<br/>Result written into buffer"]
+    D -->|No| G["Mark response as no-op"]
+
+    B -->|0x80 - SendKey special| H["Update internal state flags<br/>Commit or clear pending action"]
+    H --> I{"State transition is valid?"}
+    I -->|Yes| J["Look up commit-side handler"]
+    J --> K["Invoke commit handler<br/>Result written into buffer"]
+    I -->|No| L["Mark response as rejected"]
+
+    F --> M["Return result code to dispatcher"]
+    G --> M
+    K --> M
+    L --> M
+
+    M --> N["Dispatcher stores result code<br/>and returns to UDS layer"]
+
+    classDef note fill:#fef6df,stroke:#7a5d00,color:#1c1400
+    class C,H note

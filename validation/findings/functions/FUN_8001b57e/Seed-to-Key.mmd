@@ -1,0 +1,29 @@
+flowchart TD
+    A["Enter seed-to-key function<br/>Inputs: buffer, sub-function, session byte"] --> B{"Valid sub-function range?"}
+    B -->|No| C["Disarm seed-pending flag"]
+    C --> D["Return: invalid sub-function error"]
+    B -->|Yes| E{"Request type?"}
+
+    E -->|Even = SendKey| F{"Is a seed currently pending?"}
+    F -->|No| G["Return: access denied"]
+    F -->|Yes| H["Clear pending flag<br/>Reset security level"]
+    H --> I["Read received key from buffer"]
+    I --> J["XOR received key with stored expected key"]
+    J --> K{"Difference matches<br/>required validation pattern?"}
+    K -->|No| G
+    K -->|Yes| L{"Byte value in allowed range?"}
+    L -->|No| G
+    L -->|Yes| M["Grant security level"]
+    M --> N["Return: success"]
+
+    E -->|Odd = RequestSeed| O["Randomise LFSR state<br/>using live hardware timer as nonce"]
+    O --> P["Write 4-byte seed to buffer"]
+    P --> Q["Compute shift count from session byte"]
+    Q --> R["Select polynomial for this security level"]
+    R --> S["Convert polynomial to Fibonacci form<br/>(bit-reverse)"]
+    S --> T["Convert seed to Fibonacci coordinates<br/>(bit-reverse)"]
+    T --> U["Run right-shift LFSR for computed rounds<br/>Sample, shift, conditionally XOR polynomial"]
+    U --> V["Convert result back to natural form<br/>(bit-reverse)"]
+    V --> W["Store as expected key"]
+    W --> X["Arm seed-pending flag"]
+    X --> N

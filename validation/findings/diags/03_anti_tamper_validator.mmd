@@ -1,0 +1,28 @@
+%% FUN_8001971C - Anti-Tamper Validator
+%% Unconditionally tail-called by the SecurityAccess dispatcher after every
+%% request. Any failed check escalates to the hardware reset trigger.
+
+flowchart TD
+    A["Enter anti-tamper validator"] --> B["Refresh security shadow state"]
+    B --> C{"First integrity canary correct?"}
+    C -->|No| Z1["Trigger hardware reset<br/>(canary 1 mismatch)"]
+    C -->|Yes| D{"Second integrity canary correct?"}
+    D -->|No| Z1
+    D -->|Yes| E["Check environment conditions<br/>(stack, RAM, peripheral registers)"]
+    E --> F{"Environment checks pass?"}
+    F -->|No| Z1
+    F -->|Yes| G["Verify execution integrity<br/>(flash checksum, program counter range)"]
+    G --> H{"Integrity checks pass?"}
+    H -->|No| Z1
+    H -->|Yes| I["Check timing budget<br/>(detect debugger single-stepping)"]
+    I --> J{"Completed within expected time?"}
+    J -->|No| Z2["Trigger hardware reset<br/>(timing violation)"]
+    J -->|Yes| K["Return normally to dispatcher"]
+
+    Z1 --> X["ECU resets, session ends"]
+    Z2 --> X
+
+    classDef fail fill:#ffd9d9,stroke:#7a0000,color:#220000
+    classDef ok   fill:#d9f5dd,stroke:#0a5a2e,color:#062014
+    class Z1,Z2,X fail
+    class K ok

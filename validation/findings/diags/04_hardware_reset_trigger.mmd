@@ -1,0 +1,22 @@
+%% FUN_80018E40 - Hardware Reset Trigger
+%% Reached only via the anti-tamper validator when a check fails.
+%% Captures a crash snapshot then issues an unrecoverable hardware reset.
+
+flowchart TD
+    A["Enter hardware reset trigger<br/>Inputs: reset type, error code, sub-reason"] --> B["Read hardware timer snapshot"]
+    B --> C["Record timer state in crash log"]
+    C --> D["Record caller return address in crash log"]
+    D --> E["Record inverted error code in crash log<br/>(inversion makes accidental zeroing detectable)"]
+    E --> F["Record reset type and sub-reason in crash log"]
+    F --> G{"Debugger attached?"}
+    G -->|Yes| H["Raise debug trap<br/>Let debugger capture the crash"]
+    G -->|No| I["Continue to reset sequence"]
+    H --> J["Unlock watchdog timer for modification"]
+    I --> J
+    J --> K["Perform watchdog password access<br/>(clears write-protection)"]
+    K --> L["Enable watchdog modify access"]
+    L --> M["Issue system reset request to hardware"]
+    M --> N["Spin indefinitely until watchdog fires"]
+
+    classDef boot fill:#ffd3d3,stroke:#7a0000,color:#1c0000
+    class M,N boot

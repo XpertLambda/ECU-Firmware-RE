@@ -1,0 +1,30 @@
+%% Client-side KeyGen flow (synthetic_keygen.py)
+%% Mirrors the ECU-side seed-to-key core: same bit-reversed Fibonacci LFSR,
+%% same polynomial table, same shift count formula.
+%% Verified against the firmware emulator: 180 trials, bit-for-bit match.
+
+flowchart TD
+    A["Capture RequestSeed exchange<br/>Tester receives 4-byte seed from ECU"] --> B["Parse seed as 4-byte big-endian value"]
+    B --> C{"Sub-function is an odd RequestSeed?"}
+    C -->|No| Z["Reject: KeyGen requires the RequestSeed sub-function"]
+    C -->|Yes| D["Compute polynomial table index<br/>from sub-function value"]
+    D --> E{"Index valid and slot not a placeholder?"}
+    E -->|No| Y["Reject: security level not supported<br/>or placeholder slot"]
+    E -->|Yes| F["Look up polynomial for this security level<br/>Convert to Fibonacci form (bit-reverse)"]
+    F --> G["Compute shift count<br/>(session byte plus base offset, capped at 255)"]
+    G --> H["Convert seed to Fibonacci coordinates<br/>(bit-reverse)"]
+    H --> I["Run right-shift LFSR for computed rounds<br/>Sample feedback bit, shift right,<br/>conditionally XOR polynomial"]
+    I --> J["Convert result back to natural form<br/>(bit-reverse)"]
+    J --> K["Emit 4-byte key big-endian"]
+    K --> L["Send SendKey request to ECU"]
+    L --> M{"ECU response?"}
+    M -->|Positive response| OK["Access granted at requested level"]
+    M -->|Security access denied| FAIL["Wrong key or seed expired<br/>Seed-pending flag cleared"]
+    M -->|Invalid key| FAIL2["Key rejected by vendor-specific check"]
+
+    classDef bitrev fill:#e8f4ff,stroke:#0d4a8c,color:#062241
+    classDef ok     fill:#d9f5dd,stroke:#0a5a2e,color:#062014
+    classDef fail   fill:#ffd9d9,stroke:#7a0000,color:#220000
+    class F,H,J bitrev
+    class OK ok
+    class FAIL,FAIL2,Z,Y fail
